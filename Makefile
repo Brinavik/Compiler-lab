@@ -1,6 +1,6 @@
 CC = gcc
 LEX = flex
-YACC = bison -d -t -v
+YACC = bison -d -t
 CFLAGS = 
 LDFLAGS = -lfl -ly
 TARGET = ../parser
