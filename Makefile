@@ -1,29 +1,42 @@
+# GNU make手册：http://www.gnu.org/software/make/manual/make.html
+# ************ 遇到不明白的地方请google以及阅读手册 *************
+
+# 编译器设定和编译选项
 CC = gcc
-LEX = flex
-YACC = bison -d 
-CFLAGS = 
-LDFLAGS = -lfl -ly
-TARGET = ../parser
-SOURCES = main.c syntax.tab.c tree.c
-OBJ = $(SOURCES:.c=.o)
+FLEX = flex
+BISON = bison
+CFLAGS = -std=c99
 
-all: $(TARGET)
+# 编译目标：src目录下的所有.c文件
+CFILES = $(shell find ./ -name "*.c")
+OBJS = $(CFILES:.c=.o)
+LFILE = $(shell find ./ -name "*.l")
+YFILE = $(shell find ./ -name "*.y")
+LFC = $(shell find ./ -name "*.l" | sed s/[^/]*\\.l/lex.yy.c/)
+YFC = $(shell find ./ -name "*.y" | sed s/[^/]*\\.y/syntax.tab.c/)
+LFO = $(LFC:.c=.o)
+YFO = $(YFC:.c=.o)
 
-$(TARGET): $(OBJ)
-	$(CC) $^ $(LDFLAGS) -o $@
+parser: syntax $(filter-out $(LFO),$(OBJS))
+	$(CC) -o parser $(filter-out $(LFO),$(OBJS)) -lfl
 
-syntax.tab.c syntax.tab.h: syntax.y
-	$(YACC) $<
+syntax: lexical syntax-c
+	$(CC) -c $(YFC) -o $(YFO)
 
-lex.yy.c: lexical.l
-	$(LEX) $<
+lexical: $(LFILE)
+	$(FLEX) -o $(LFC) $(LFILE)
 
-# 显式声明依赖关系
-main.o: main.c syntax.tab.h tree.h lex.yy.c
-syntax.tab.o: syntax.tab.c syntax.tab.h
-tree.o: tree.c tree.h
+syntax-c: $(YFILE)
+	$(BISON) -o $(YFC) -d -t -v $(YFILE)
 
+-include $(patsubst %.o, %.d, $(OBJS))
+
+# 定义的一些伪目标
+.PHONY: clean test
+test: parser
+	./parser ../Test/test1.cmm
 clean:
-	rm -f $(TARGET) $(OBJ) lex.yy.c syntax.tab.c syntax.tab.h
-
-.PHONY: all clean
+	rm -f parser lex.yy.c syntax.tab.c syntax.tab.h syntax.output
+	rm -f $(OBJS) $(OBJS:.o=.d)
+	rm -f $(LFC) $(YFC) $(YFC:.c=.h)
+	rm -f *~

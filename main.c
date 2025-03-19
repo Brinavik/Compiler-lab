@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include"syntax.tab.h"
-#include "tree.h"
+#include "syntax.tab.h"
+#include "node.h"
 
 extern void yyrestart (FILE*);
 extern int yyparse (void);
@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     return 0; 
   } 
   yyrestart(f);
- // yydebug = 1; 
+  yydebug = 1; 
   yyparse(); 
   if (has_error == 0) 
     display();

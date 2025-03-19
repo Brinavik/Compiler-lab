@@ -3,10 +3,9 @@
     #include <errno.h>
     #include <stdlib.h>
     #include <string.h>
-    #include "tree.h"
     #include "syntax.tab.h"
-    extern int has_error;
-
+    #include "node.h"
+    extern int has_error; 
 //
     #define SYMBOL_TABLE_SIZE 97
     typedef enum { TYPE_INT, TYPE_FLOAT, TYPE_UNKNOWN } SymbolType;
@@ -117,7 +116,7 @@ IF if
 ELSE else
 WHILE while
 INT ([1-9][0-9]*|0)
-FLOAT (0[.][0-9]+|[1-9][0-9]*[.][0-9]+)
+FLOAT (0[.][0-9]+|[1-9][0-9]*\.[0-9]+)
 ID [_a-zA-Z][_a-zA-Z0-9]*
 SINGLE_LINE_COMMENT \/\/.*
 MULTI_LINE_COMMENT \/\*([^*]|\*+[^*/])*\*+\/

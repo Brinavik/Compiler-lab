@@ -1,10 +1,64 @@
 %{
     #include <stdio.h>
     #include <assert.h>
-    #include "tree.h"
+    #include <string.h>
+    #include <stdlib.h>
+    #include <stdarg.h>
+    #include "node.h"
     #include "lex.yy.c"
-    void yyerror(char* msg, ...);
+
+void yyerror(char* msg, ...);
+Node* create_node(NodeType type, char* name, char* attr) {
+    Node* node = (Node*)malloc(sizeof(struct Node));
+    node->type = type;
+    node->name = strdup(name);
+    node->attr = strdup(attr);
+    return node;
+}
+
+Node* create_syntax(NodeType type, char* name,unsigned int line) {
+    sprintf(buffer, "%d", line); 
+    return create_node(type, name, buffer);
+}
+
+void add_node(unsigned int num, Node* parent, ...) {
+    if(num == 0)    return;
+    va_list args;
+    va_start(args, parent);
+    for (int i = 0; i < num; i++) {
+        Node* child = va_arg(args, Node*);
+        parent->child[parent->num] = child;
+        parent->num++;
+    }
+    va_end(args);
+}
+
+void preorder(Node* node, int depth) {
+    if (node == NULL) return ;
+    for (int i = 0; i < depth; i++) printf("  ");
+    depth++;
+    if (node->type == SYNTAX_NODE) {
+        printf("%s (%s)\n", node->name, node->attr);
+    } else if (strcmp(node->name, "ID") == 0 || strcmp(node->name, "TYPE") == 0 || 
+              strcmp(node->name, "INT") == 0 || strcmp(node->name, "FLOAT") == 0) {
+        printf("%s: %s\n", node->name, node->attr);    
+    } else {
+        printf("%s\n", node->name);
+    }
+
+    for (int i = 0; i < node->num; i++) {
+        preorder(node->child[i], depth);
+    }
+}
+
+void display() {
+    preorder(root, 0);
+}
 %}
+
+
+
+
 %union
 {
     struct Node* node;
@@ -55,14 +109,14 @@ ExtDefList : ExtDef ExtDefList {$$ = create_syntax(0, "ExtDefList", @$.first_lin
 ExtDef : Specifier ExtDecList SEMI {$$ = create_syntax(0, "ExtDef", @$.first_line); add_node(3, $$, $1, $2, $3);}
     | Specifier SEMI {$$ = create_syntax(0, "ExtDef", @$.first_line); add_node(2, $$, $1, $2);}
     | Specifier FunDec CompSt {$$ = create_syntax(0, "ExtDef", @$.first_line); add_node(3, $$, $1, $2, $3);}
-    | error SEMI {yyerror("Wrong ExtDef", @$.first_line); yyerrok; yyclearin; }
-    | Specifier error {yyerror("Missing ;", @$.first_line); yyerrok; yyclearin; }
+    | error SEMI {yyerror("Wrong ExtDef", @1.first_line); yyerrok; yyclearin; }
+    | Specifier error {yyerror("Missing ;", @1.first_line); yyerrok; yyclearin; }
     ;
 
 ExtDecList : VarDec {$$ = create_syntax(0, "ExtDecList", @$.first_line); add_node(1, $$, $1);}
     | VarDec COMMA ExtDecList {$$ = create_syntax(0, "ExtDecList", @$.first_line); add_node(3, $$, $1, $2, $3);}
-    | VarDec error ExtDecList {yyerror("Missing ,", @$.first_line); yyerrok; yyclearin; }
-    | VarDec error {yyerror("Missing ;", @$.first_line); yyerrok; yyclearin; }
+    | VarDec error ExtDecList {yyerror("Missing ,", @1.first_line); yyerrok; yyclearin; }
+    | VarDec error {yyerror("Missing ;", @1.first_line); yyerrok; yyclearin; }
     ;
 
 // Specifiers
@@ -72,7 +126,7 @@ Specifier : TYPE {$$ = create_syntax(0, "Specifier", @$.first_line); add_node(1,
 
 StructSpecifier : STRUCT OptTag LC DefList RC {$$ = create_syntax(0, "StructSpecifier", @$.first_line); add_node(5, $$, $1, $2, $3, $4, $5);}
     | STRUCT Tag {$$ = create_syntax(0, "StructSpecifier", @$.first_line); add_node(2, $$, $1, $2);}
-    | STRUCT error RC {yyerror("Wrong StructSpecifier", @$.first_line); yyerrok; yyclearin; }
+    | STRUCT OptTag LC error RC {yyerror("Wrong StructSpecifier", @2.first_line); yyerrok; yyclearin; }
     ;
 
 OptTag : ID {$$ = create_syntax(0, "OptTag", @$.first_line); add_node(1, $$, $1);}
@@ -86,13 +140,14 @@ Tag : ID {$$ = create_syntax(0, "Tag", @$.first_line); add_node(1, $$, $1);}
 // Declarators
 VarDec : ID {$$ = create_syntax(0, "VarDec", @$.first_line); add_node(1, $$, $1);}
     | VarDec LB INT RB {$$ = create_syntax(0, "VarDec", @$.first_line); add_node(4, $$, $1, $2, $3, $4);}
-    | error RB {yyerror("Wrong VarDec", @$.first_line); yyerrok; yyclearin; }
-    | VarDec LB error {yyerror("Missing SEMI", @$.first_line); yyerrok; yyclearin; }
+    | VarDec LB error RB {yyerror("Wrong VarDec", @3.first_line); yyerrok; yyclearin; }
+    | VarDec LB error {yyerror("Missing RB", @2.first_line); yyerrok; yyclearin; }
     ;
 
 FunDec : ID LP VarList RP {$$ = create_syntax(0, "FunDec", @$.first_line); add_node(4, $$, $1, $2, $3, $4);}
     | ID LP RP {$$ = create_syntax(0, "FunDec", @$.first_line); add_node(3, $$, $1, $2, $3);}
-    | error RP {yyerror("Wrong FunDec", @$.first_line); yyerrok; yyclearin; }
+    | ID LP error RP {yyerror("Wrong FunDec", @3.first_line); yyerrok; yyclearin; }
+    | error LP VarList RP {yyerror("Wrong FunName", @1.first_line); yyerrok; yyclearin;}
     ;
 
 VarList : ParamDec COMMA VarList {$$ = create_syntax(0, "VarList", @$.first_line); add_node(3, $$, $1, $2, $3);}
@@ -105,7 +160,7 @@ ParamDec : Specifier VarDec {$$ = create_syntax(0, "ParamDec", @$.first_line); a
 
 // Statements
 CompSt : LC DefList StmtList RC {$$ = create_syntax(0, "CompSt", @$.first_line); add_node(4, $$, $1, $2, $3, $4);}
-    | error RC {yyerror("Wrong Compst", @$.first_line); yyerrok; yyclearin; }
+    | LC error RC {yyerror("Wrong Compst", @1.first_line); yyerrok; yyclearin; }
     ;
 
 StmtList : Stmt StmtList {$$ = create_syntax(0, "StmtList", @$.first_line); add_node(2, $$, $1, $2);}
@@ -118,8 +173,10 @@ Stmt : Exp SEMI {$$ = create_syntax(0, "Stmt", @$.first_line); add_node(2, $$, $
     | IF LP Exp RP Stmt %prec LOWER_THAN_ELSE {$$ = create_syntax(0, "Stmt", @$.first_line); add_node(5, $$, $1, $2, $3, $4, $5);}
     | IF LP Exp RP Stmt ELSE Stmt {$$ = create_syntax(0, "Stmt", @$.first_line); add_node(7, $$, $1, $2, $3, $4, $5, $6, $7);}
     | WHILE LP Exp RP Stmt {$$ = create_syntax(0, "Stmt", @$.first_line); add_node(5, $$, $1, $2, $3, $4, $5);}   
-    | error SEMI {yyerror("Wrong Stmt", @$.first_line); yyerrok; yyclearin; }
-    | Exp error {yyerror("Missing SEMI", @$.first_line); yyerrok; yyclearin; }
+    | error SEMI {yyerror("Wrong Stmt", @1.first_line); yyerrok; yyclearin; }
+    | Exp error {yyerror("Missing SEMI", @1.first_line); yyerrok; yyclearin; }
+    | RETURN Exp error {yyerror("Missing SEMI", @3.first_line); yyerrok; yyclearin; }
+    | RETURN error SEMI {yyerror("Wrong return", @2.first_line);}
     ;
 
 
@@ -129,18 +186,18 @@ DefList : Def DefList {$$ = create_syntax(0, "DefList", @$.first_line); add_node
     ;
 
 Def : Specifier DecList SEMI {$$ = create_syntax(0, "Def", @$.first_line); add_node(3, $$, $1, $2, $3);}
-    | Specifier error SEMI {yyerror("Wrong Def", @$.first_line); yyerrok; yyclearin; }
+    | Specifier error SEMI {yyerror("Wrong Def", @2.first_line);}
     ;
 
 DecList : Dec {$$ = create_syntax(0, "DecList", @$.first_line); add_node(1, $$, $1);}
     | Dec COMMA DecList {$$ = create_syntax(0, "DecList", @$.first_line); add_node(3, $$, $1, $2, $3);}
-    | Dec error DecList {yyerror("Missing ,", @$.first_line); yyerrok; yyclearin; }
-    | Dec error {yyerror("Wrong DecList", @$.first_line); yyerrok;}
+    | Dec error DecList {yyerror("Missing ','", @1.first_line);}
+    | Dec error {yyerror("Wrong DecList", @2.first_line); yyerrok;}
     ;
 
 Dec : VarDec {$$ = create_syntax(0, "Dec", @$.first_line); add_node(1, $$, $1);}
     | VarDec ASSIGNOP Exp {$$ = create_syntax(0, "Dec", @$.first_line); add_node(3, $$, $1, $2, $3);}
-    | VarDec ASSIGNOP error {yyerror("Wrong Dec", @$.first_line); yyerrok; yyclearin; }
+    | VarDec ASSIGNOP error {yyerror("Wrong Dec", @3.first_line); yyerrok; yyclearin; }
     ;
 
 Exp : Exp ASSIGNOP Exp {$$ = create_syntax(0, "Exp", @$.first_line); add_node(3, $$, $1, $2, $3);}
@@ -169,13 +226,13 @@ Exp : Exp ASSIGNOP Exp {$$ = create_syntax(0, "Exp", @$.first_line); add_node(3,
     | Exp MINUS error       {yyerror("Wrong expression", @3.first_line); yyerrok;}
     | Exp STAR error        {yyerror("Wrong expression", @3.first_line); yyerrok;}
     | Exp DIV error         {yyerror("Wrong expression", @3.first_line); yyerrok;}
-    | LP error RP           {yyerror("Wrong expression", @2.first_line); yyerrok;}
+    | LP error RP           {yyerror("Wrong expression", @2.first_line);}
     | MINUS error           {yyerror("Wrong expression", @2.first_line); yyerrok;}
     | NOT error             {yyerror("Wrong expression", @2.first_line); yyerrok;}
     | ID LP error RP        {yyerror("Wrong argument(s)", @3.first_line); yyerrok;}
-    | ID LP error SEMI      {yyerror("Missing \")\"", @3.first_line); yyerrok;}
-    | Exp LB error RB       {yyerror("Missing \"]\"", @3.first_line); yyerrok;}
-    | Exp LB error SEMI     {yyerror("Missing \"]\"", @3.first_line); yyerrok;}
+    | ID LP error SEMI      {yyerror("Missing \")\"", @3.first_line);}
+    | Exp LB error RB       {yyerror("Missing \"]\"", @3.first_line);}
+    | Exp LB error SEMI     {yyerror("Missing \"]\"", @3.first_line);}
     ;
 Args : Exp COMMA Args {$$ = create_syntax(0, "Args", @$.first_line); add_node(3, $$, $1, $2, $3);}
     | Exp {$$ = create_syntax(0, "Args", @$.first_line); add_node(1, $$, $1);}
