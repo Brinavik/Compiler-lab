@@ -1,6 +1,4 @@
 #include <stdlib.h>
-#include <type.h>
-#include <symbol.h>
 #include "node.h"
 #include "type.h"
 #include "semantic_analysis_error.h"
@@ -29,7 +27,7 @@ void ExtDef(Node* node) {
 }
 
 Type FunDec(Node* node, Type retType) {
-    Type func = create_func(retType);
+    Type func = create_func(retType, node->child[0]->attr);
     if((node->child[2]->name, "VarList") == 0) {
         VarList(node->child[2], func);
     }
@@ -118,7 +116,7 @@ Type StructSpecifier(Node* node) {
 
 Type OptTag(Node* node) {
     if (node != NULL) {
-        Type ret = create_struct();
+        Type ret = create_struct(node->child[0]->attr);
 	    insert_symbol(node->child[0]->attr, node->lineNum, ret);
         return ret;
     }
@@ -127,10 +125,12 @@ Type OptTag(Node* node) {
 
 Type Tag(Node* node) {
     char* struct_name = node->child[0]->attr;
-    SymbolEntry* entry = lookup_symbol_with_a_type(struct_name, node->child[0]->type);
+    if(node->child[0]->type != STRUCTURE)
+        assert(0);
+    SymbolEntry* entry = lookup_symbol_with_a_type(struct_name, STRUCTURE);
     
     if (entry == NULL) {
-        semErrOutput(NOT_DEFINE_STRUCT);
+        semErrOutput(NOT_DEFINE_STRUCT, node->lineNum);
         return NULL;
     }
     return entry->type;
@@ -183,14 +183,14 @@ void Args(Node* node, Type type) {
 void VarDec(Node* node, Type type, Type fieldlist) {
     if (node->num == 1) {
         if (fieldlist != NULL) {
-	    append_fieldlist(fieldlist, node->child[0]->attr, type);
+	    append_fieldlist(fieldlist, node->child[0]->attr, type, node->child[0]->lineNum);
 	} else {
             insert_symbol(node->child[0]->attr, node->lineNum, type);
 	}
     } else {
         Type array = create_array(type, node->child[2]->attr);
         if (fieldlist != NULL) {
-	    append_fieldlist(fieldlist, atoi(node->child[0]->attr), array);
+	    append_fieldlist(fieldlist, atoi(node->child[0]->attr), array, node->child[0]->lineNum);
 	} else {
             insert_symbol(node->child[0]->attr, node->lineNum, array);
 	}
@@ -206,9 +206,9 @@ Type Exp(Node* node) {
     if (node->num == 1) {
         // get an ID
         if (strcmp(node->child[0]->name, "ID") == 0) {
-            SymbolEntry* symbol = find_symbol(node->child[0]->attr);
+            SymbolEntry* symbol = lookup_symbol(node->child[0]->attr);
             if(!symbol) {
-                semErrOutput(NOT_DEFINE_VAR);   
+                semErrOutput(NOT_DEFINE_VAR, node->lineNum);   
                 return NULL;
             }
             return symbol->type;
@@ -218,25 +218,23 @@ Type Exp(Node* node) {
             return create_basic(TYPE_FLOAT);
         }
     }
-
     // LP Exp RP
     if (node->num == 3 && strcmp(node->child[0]->name, "LP") == 0) {
         return Exp(node->child[1]); 
     }
 
-
     if (node->num == 2) {
         Type type = Exp(node->child[1]);
         if (strcmp(node->child[0]->name, "MINUS") == 0) {
             if (type->kind != BASIC) {
-                semErrOutput(NOT_MATCH_OPERATOR);
+                semErrOutput(NOT_MATCH_OPERATOR, node->lineNum);
                 return NULL;
             }
             return type;
         }
         if (strcmp(node->child[0]->name, "NOT") == 0) {
             if (type->kind != BASIC || type->u.basic != TYPE_INT) {
-                semErrOutput(NOT_MATCH_OPERATOR);
+                semErrOutput(NOT_MATCH_OPERATOR, node->lineNum);
                 return NULL;
             }
             return create_basic(TYPE_INT);
@@ -246,24 +244,28 @@ Type Exp(Node* node) {
     if (node->num == 3 && is_operator(node->child[1])) {
         Type left = Exp(node->child[0]);
         Type right = Exp(node->child[2]);
-        
-        if (strcmp(node->child[1]->name, "ASSIGNOP") == 0) {
-        
-            // about assignop, need to be completed
-        
-            return right;
-        }
 
-        // Match types on left and right sides
-        if (left->kind != right->kind || (left->kind == BASIC 
-            && left->u.basic != right->u.basic)){
-            semErrOutput(NOT_MATCH_ASSIGNOP);
-            return NULL;
+        // Assignop
+        if (strcmp(node->child[1]->name, "ASSIGNOP") == 0) {
+            
+            // left-value check
+            if (!is_lvalue(node->child[0])) {
+                semErrOutput(NOT_LEGAL_LVAL, node->lineNum);
+                return NULL;
+            }
+
+            // Match types on left and right sides
+            if(!cmp_type(left, right)) {
+                semErrOutput(NOT_MATCH_ASSIGNOP, node->lineNum);
+                return NULL;
+            }
+            return right;
         }
         
         if (node->child[1]->name == "PLUS" || node->child[1]->name == "MINUS" ||
             node->child[1]->name == "STAR" || node->child[1]->name == "DIV") {    
-            return left;
+            
+                return left;
         } 
         else if (node->child[1]->name == "AND" || node->child[1]->name == "OR") {
             return create_basic(TYPE_INT);
@@ -279,11 +281,11 @@ Type Exp(Node* node) {
         Type index_type = Exp(node->child[2]);
         
         if (array_type->kind != ARRAY) {
-            semErrOutput(NOT_ARR_LB);
+            semErrOutput(NOT_ARR_LB, node->lineNum);
             return NULL;
         }
         if(index_type->kind != BASIC || index_type->u.basic != TYPE_INT) {
-            semErrOutput(NOT_INT_ACCESS_ARR);
+            semErrOutput(NOT_INT_ACCESS_ARR, node->lineNum);
             return NULL;
         }
         return array_type->u.array.elem;
@@ -293,14 +295,14 @@ Type Exp(Node* node) {
     if (node->num == 3 && strcmp(node->child[1]->name, "DOT") == 0) {
         Type struct_type = Exp(node->child[0]);
         if (struct_type->kind != STRUCTURE) {
-            semErrOutput(NOT_STRUCT_DOT);
+            semErrOutput(NOT_STRUCT_DOT, node->lineNum);
             return NULL;
         }
         
     // continue to complete this: find_member()
         FieldList field = find_field_member(struct_type, node->child[2]->attr);
         if (!field){
-            semErrOutput(NOT_DEFINE_FIELD);
+            semErrOutput(NOT_DEFINE_FIELD, node->lineNum);
             return NULL;
         } 
         return field->type;
@@ -312,16 +314,16 @@ Type Exp(Node* node) {
         if (!func) {
             func = lookup_symbol(node->child[0]->attr);
             if (func != NULL && func->type->kind != FUNCTION) {
-                semErrOutput(NOT_FUNC_LC);
+                semErrOutput(NOT_FUNC_LC, node->lineNum);
                 return NULL;
             }
-            semErrOutput(NOT_DEFINE_FUNC);
+            semErrOutput(NOT_DEFINE_FUNC, node->lineNum);
             return NULL;
         }
         
         if (node->num == 4) { 
             if (func->type->u.fieldlist != NULL){
-                semErrOutput(NOT_MATCH_FUNCPARA);
+                semErrOutput(NOT_MATCH_FUNCPARA, node->lineNum);
                 return NULL;
             }  
         } else {

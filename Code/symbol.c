@@ -1,7 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
-#include "syntax.tab.h"
- 
+// #include "syntax.tab.h"
+#include "type.h" 
+#include "symbol.h"
+#include "semantic_analysis_error.h"
+
 SymbolTable* create_symbol_table(){
     SymbolTable *table = (SymbolTable*)malloc(sizeof(SymbolTable));
     for (int i = 0; i < HASH_SIZE; i++) {
@@ -17,15 +20,19 @@ SymbolTable* create_symbol_table(){
 }
 
 void enter_scope(){
+    if(table->cur_depth + 1 > MAX_DEPTH){
+        printf("Error: SymbolTable depth overflow, enter_scope() failed !\n");
+        assert(0);
+    }
     table->cur_depth++;
 }
 
 void exit_scope(){
-    SymbolEntry* cur = table->stack_buckets[table->cur_depth]->stack_next;
+    SymbolEntry* cur = table->scopes[table->cur_depth]->stack_next;
     while (cur != NULL) {
         cur->hash_prev->hash_next = cur->hash_next;
         if (cur->hash_next) cur->hash_next->hash_prev = cur->hash_prev;
-        Symbol *next = cur->stack_next;
+        SymbolEntry *next = cur->stack_next;
         free(cur->name);
         free(cur);
         cur = next;
@@ -41,9 +48,15 @@ static unsigned int hashmap(const char* name){
     return seed % SYMBOL_TABLE_SIZE;
 }
 
-void insert_symbol(const char* name, unsigned int line, SymbolType type){
+void insert_symbol(const char* name, unsigned int line, Type type){
     unsigned int bucket = hashmap(name);
     SymbolEntry *head = table->buckets[bucket];
+
+    SymbolEntry* duplicate_entry = NULL;
+    if((duplicate_entry = lookup_symbol(name)) != NULL && duplicate_entry->depth == table->cur_depth) {
+        duplicate_handle(name, type, line);
+        return;
+    }
 
     SymbolEntry *new_entry = malloc(sizeof(SymbolEntry));
     new_entry->name = strdup(name);
@@ -74,6 +87,21 @@ SymbolEntry* lookup_symbol(const char *name) {
     return NULL;
 }
 
+
+SymbolEntry* lookup_symbol_with_a_type(const char *name, Type type) {
+    unsigned int bucket = hashmap(name);
+    SymbolEntry *entry = table->buckets[bucket]->hash_next;
+    while (entry != NULL) {
+        if (strcmp(entry->name, name) == 0 && entry->type == type) {
+            return entry; 
+        }
+        entry = entry->hash_next;
+    }
+    return NULL;
+}
+
+
+
 void FreeSymbolTable(){
     for(int i = 0; i < HASH_SIZE; i++){
         SymbolEntry* entry = table->buckets[i];
@@ -87,3 +115,13 @@ void FreeSymbolTable(){
     free(table);
 }
 
+void duplicate_handle(const char* name,Type type, unsigned int line){
+    if(type->kind == BASIC || type->kind == ARRAY)
+        semErrOutput(DEFINE_VAR_MULTIPLY, line);
+    else if(type->kind == STRUCTURE)
+        semErrOutput(DEFINE_STRUCT_MULTIPLY, line);
+    else if(type->kind == FUNCTION)
+        semErrOutput(DEFINE_FUNC_MULTIPLY, line);
+    else
+        assert(0);
+}

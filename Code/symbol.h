@@ -29,10 +29,10 @@ static SymbolTable* table;
 SymbolTable* create_symbol_table();
 void enter_scope();
 void exit_scope();
-void insert_symbol(const char* name, int line, Type type);
+void insert_symbol(const char* name,unsigned int line, Type type);
 SymbolEntry* lookup_symbol(const char *name);
 SymbolEntry* lookup_symbol_with_a_type(const char *name, Type type);
-void duplicate_handle(const char* name,Type type);
+void duplicate_handle(const char* name,Type type, unsigned int line);
 void FreeSymbolTable();
 
 #endif
