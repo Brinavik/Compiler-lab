@@ -17,7 +17,9 @@ typedef struct SymbolEntry {
         Create an alias for each variable,
         and reference it in the intermediate code generation.
     */         
-    char* alias;   
+    char* alias;
+    // 新增字段：1表示函数参数，0表示普通变量
+    unsigned int is_param;   
     Type type; 
     unsigned int first_occur_line;
     unsigned int depth;

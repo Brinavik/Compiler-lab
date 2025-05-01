@@ -28,8 +28,7 @@ int main(int argc, char** argv) {
   */
   InitBasicComponents();
   if (has_error == 0){ 
-  //  Program();
-
+  Program();
 #if TRANS_PRINT_DEBUG
     display();
     printf("\n\n\n\n");

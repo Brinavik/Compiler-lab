@@ -9,7 +9,7 @@
 // 定义全局常量，控制是否打印调试信息
 #define TRANS_PRINT_DEBUG 0
 // 新增数组支持开关
-#define TRANS_ARRAY_SUPPORT 1  
+#define TRANS_ARRAY_SUPPORT 0
 
 
 typedef struct Code{

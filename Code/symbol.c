@@ -36,6 +36,14 @@ void enter_scope(){
 }
 
 void exit_scope() {
+    /*
+    In lab-3, it is necessary to query the type of variables. 
+    If the symbols is destroyed after the function Program() ends, 
+    it will be impossible to do so.
+    So I temporarily disabled this function.
+    */ 
+    return;
+
     if (table->cur_depth == 0) {
         printf("Error: cannot exit scope\n");
         assert(0);
