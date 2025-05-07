@@ -248,8 +248,10 @@ void print_intermediate_code(char* output) {
     Code* code = codelist.head->next;
     FILE *file = fopen(output, "w");
     while(code) {
+    #if !TRANS_MIPS_OUTPUT
         fprintf(file, "%s", code->str);
-    //    print_code_codetype(code);
+    #endif
+        //    print_code_codetype(code);
         code = code->next;
     }
     fclose(file);
@@ -1305,8 +1307,8 @@ switch (code->codetype) {
     case CODE_DEC:
         printf("code: CODE_DEC\n");
         break;
-    case CODE_HANDLED_FUNCTION:
-        printf("code: CODE_HANDLED_FUNCTION\n");
+    case CODE_HANDLED:
+        printf("code: CODE_HANDLED\n");
         break;
     case CODE_ASSIGN_DEREF:
         printf("code: CODE_ASSIGN_DEREF\n");

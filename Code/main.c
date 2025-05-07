@@ -4,6 +4,7 @@
 #include "symbol.h"
 #include "semantic.h"
 #include "trans.h"
+#include "trans_mips.h"
 
 extern void yyrestart (FILE*);
 extern int yyparse (void);
@@ -42,6 +43,10 @@ int main(int argc, char** argv) {
   Program();
 
   Trans_Program(argv[2]);
+
+#if TRANS_MIPS_OUTPUT
+  Trans_MIPS(argv[2]);
+#endif
 
   return 0; 
 }

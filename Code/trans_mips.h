@@ -3,21 +3,42 @@
 
 #include "lib.h"
 #include "trans.h"
-#define MAX_REG_SIZE 32
+
+#define TRANS_MIPS_DEBUG 1
 
 typedef enum {REGISTER_FREE, REGISTER_OCCUPIED} RegState;
 typedef struct Reg {
-    char name[20];
+    char name[6];
     RegState state;
     char* value;
 } Reg;
-Reg regs[MAX_REG_SIZE];
+    /*
+        Registers.
+    */
+Reg regs[32];
+
+// Definition of the variables in a stack-frame.
+typedef struct FrameVar_* FrameVar;
+typedef struct FrameVar_{
+    char name[MAX_CODE_LENGTH];
+    unsigned int reg;
+    int offset;
+    FrameVar next;
+} FrameVar_;
+
+
+extern int local_offset;   // The offset of the variables in a stack-frame.
+extern FrameVar frameVarHead;
 
 void init_regs();
 unsigned int get_free_reg();
+FrameVar find_frame_var(Op op);
+void insert_frame_var(FrameVar temp);
+void insert_frame_var_for_op(Op op);
 
-void Trans_MIPS(Codelist codelist, char* filename);
-void Trans_MIPS_SingleLineCode(Code* code);
+extern Codelist codelist;
+void Trans_MIPS(char* file);
+void Trans_MIPS_SingleLineCode(Code* code, FILE* file);
 
 void Trans_MIPS_read(Code* code);
 void Trans_MIPS_write(Code* code);
@@ -31,6 +52,6 @@ void Trans_MIPS_arg_call(Code* code);
 void Trans_MIPS_goto(Code* code);
 void Trans_MIPS_return(Code* code);
 void Trans_MIPS_ifgoto(Code* code);
-void Trans_MIPS_function(Code* code);
+void Trans_MIPS_function(Code* code, FILE* file);
 
 #endif

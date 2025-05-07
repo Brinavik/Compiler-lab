@@ -11,6 +11,8 @@
 #define TRANS_PRINT_DEBUG 0
 // 新增数组支持开关
 #define TRANS_ARRAY_SUPPORT 1  
+// 输出控制符，为0输出中间代码，为1输出汇编指令
+#define TRANS_MIPS_OUTPUT 1
 
 typedef enum{
         OP_EMPTY, OP_CONST, OP_ADDR, OP_DEREF, OP_TEMP, OP_LABEL
@@ -24,7 +26,7 @@ typedef struct Op{
 typedef enum {CODE_UNKNOWN, CODE_READ, CODE_WRITE, CODE_LABEL, CODE_ADD, 
             CODE_SUB, CODE_MUL, CODE_DIV, CODE_SIMPLE_ASSIGNOP, CODE_ARG,
             CODE_CALL, CODE_GOTO, CODE_RETURN, CODE_IFGOTO, CODE_FUNCTION,
-            CODE_PARAM, CODE_DEC, CODE_HANDLED_FUNCTION, 
+            CODE_PARAM, CODE_DEC, CODE_HANDLED, 
             CODE_ASSIGN_ADDR, CODE_ASSIGN_DEREF} CodeType;
 
 typedef struct Code{
