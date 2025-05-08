@@ -73,39 +73,36 @@ void init_MIPS() {
 
 
 unsigned int get_free_reg(Op op){
-    if(op.optype == OP_EMPTY)
+    if(op->optype == OP_EMPTY)
     // it should not appear!
         assert(0);
 #if TRANS_MIPS_DEBUG
-    printf("get-reg-a\n");
-    printf("optype %d\n", op.optype);
+    printf("optype %d\n", op->optype);
 #endif
-    if(op.optype == OP_CONST){
+    if(op->optype == OP_CONST){
         unsigned int j;
         for(j = 8; j <= 15; j++){
             if(regs[j].state == REGISTER_FREE){
                 regs[j].state = REGISTER_OCCUPIED;
                 regs[j].var = NULL;
-                fprintf(file, "li %s, %s\n", regs[j].name, op.name);
+                fprintf(file, "li %s, %s\n", regs[j].name, op->name);
                 return j;
             }
         }
     }
-#if TRANS_MIPS_DEBUG
-    printf("get-reg-b\n");
-#endif
     unsigned int i;
     for(i = 8; i <= 15; i++){
         if(regs[i].state == REGISTER_FREE){
             regs[i].state = REGISTER_OCCUPIED;
+            printf("%s\n", op->name);
             FrameVar temp = find_frame_var(op);
             assert(temp);
             temp->reg = i;
             regs[i].var = temp;
 
-            if(op.optype == OP_ADDR) {
+            if(op->optype == OP_ADDR) {
                 fprintf(file, "addi %s, $fp, %d\n", regs[i].name, temp->offset);
-            } else if(op.optype == OP_DEREF) {
+            } else if(op->optype == OP_DEREF) {
                 fprintf(file,"lw %s, %d($fp)\n",regs[i].name,temp->offset);
                 fprintf(file,"lw %s, 0(%s)\n",regs[i].name,regs[i].name);
             } else {
@@ -131,12 +128,12 @@ void insert_frame_var(FrameVar temp){
 }
 
 FrameVar find_frame_var(Op op){
-    if(op.optype == OP_CONST){
+    if(op->optype == OP_CONST){
         assert(0);
     }
     FrameVar tmp = frameVarHead;
     while(tmp){
-        if(strcmp(tmp->name, op.name) == 0)
+        if(strcmp(tmp->name, op->name) == 0)
             break;
         tmp = tmp->next;
     }
@@ -144,18 +141,24 @@ FrameVar find_frame_var(Op op){
 }
 
 void insert_frame_var_for_op(Op op){
-        if( op.optype == OP_CONST || 
-            op.optype == OP_EMPTY)
+        if( op->optype == OP_CONST || 
+            op->optype == OP_EMPTY)
             return;
     #if TRANS_MIPS_DEBUG
-        printf("%s\n", op.name);
+        printf("Meet op: %s\n", op->name);
     #endif
+        // 去掉op中传入的首位的&和*符号
+        if(op->name[0] == '&' || op->name[0] == '*')
+            op->name = op->name + 1;
+    #if TRANS_MIPS_DEBUG
+        printf("Delete first &/* op: %s\n", op->name);
+    #endif        
         FrameVar temp = find_frame_var(op);
 //第一次出现这个变量，需要新建一个FrameVar_，并且插入链表中
         if(temp == NULL) { 
             local_offset += 4;
             FrameVar new_var = (FrameVar)calloc(1, sizeof(FrameVar_));
-            strcpy(new_var->name, op.name);
+            strcpy(new_var->name, op->name);
             new_var->next = NULL;
             new_var->offset= -local_offset;
             insert_frame_var(new_var);
@@ -164,9 +167,6 @@ void insert_frame_var_for_op(Op op){
 
 void load_memory(unsigned int reg){
     assert(regs[reg].name);
-#if TRANS_MIPS_DEBUG
-    printf("load memory of %s\n", regs[reg].name);
-#endif
     assert(regs[reg].var);
     int offset=regs[reg].var->offset;
     fprintf(file,"sw %s, %d($fp)\n",regs[reg].name,offset);
@@ -190,6 +190,13 @@ void Trans_MIPS(char* filename){
         Trans_MIPS_SingleLineCode(code);
         code = code->next;
     }
+
+#if TRANS_MIPS_DEBUG
+    printf("\n\n");
+    for(FrameVar fv = frameVarHead; fv; fv = fv->next){
+        printf("Var: var-name: %s  var-offset: %d\n", fv->name, fv->offset);
+    }
+#endif
     fclose(file);
 }
 
@@ -200,6 +207,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_READ:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_READ\n");
+        printf("%s\n", code->str);
     #endif
             Trans_MIPS_read(code);
             break;
@@ -207,6 +215,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_WRITE:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_WRITE\n");
+        printf("%s\n", code->str);
     #endif
             Trans_MIPS_write(code);
             break;
@@ -214,6 +223,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_ADD:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_ADD\n");
+        printf("%s\n", code->str);
     #endif
             Trans_MIPS_add(code);
             break;
@@ -221,6 +231,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_SUB:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_SUB\n");
+        printf("%s\n", code->str);
     #endif
             Trans_MIPS_sub(code);
             break;
@@ -228,6 +239,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_MUL:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_MUL\n");
+        printf("%s\n", code->str);
     #endif
             Trans_MIPS_mul(code);
             break;
@@ -235,6 +247,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_DIV:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_DIV\n");
+        printf("%s\n", code->str);
     #endif
             Trans_MIPS_div(code);
             break;
@@ -244,6 +257,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_SIMPLE_ASSIGNOP:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_ASSIGN_FAMILY\n");
+        printf("%s\n", code->str);
     #endif
         Trans_MIPS_assignop(code);
         break;
@@ -252,6 +266,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_CALL:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_ARG/CALL\n");
+        printf("%s\n", code->str);
     #endif
         Trans_MIPS_arg_call(code);
         break;
@@ -259,6 +274,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_GOTO:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_ARG/CALL\n");
+        printf("%s\n", code->str);
     #endif
         Trans_MIPS_goto(code);
         break;
@@ -266,6 +282,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_IFGOTO:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_ARG/CALL\n");
+        printf("%s\n", code->str);
     #endif
         Trans_MIPS_ifgoto(code);
         break;
@@ -273,6 +290,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_FUNCTION:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_FUNCTION\n");
+        printf("%s\n", code->str);
     #endif
         Trans_MIPS_function(code);
         break;
@@ -280,6 +298,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_LABEL:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_LABEL\n");
+        printf("%s\n", code->str);
     #endif
         Trans_MIPS_label(code);
         break;
@@ -287,6 +306,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_RETURN:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_RETURN\n");
+        printf("%s\n", code->str);
     #endif    
         Trans_MIPS_return(code);
         break;
@@ -294,6 +314,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
         case CODE_HANDLED:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_HANDLED\n");
+        printf("%s\n", code->str);
     #endif
             break;
 
@@ -311,13 +332,13 @@ void Trans_MIPS_read(Code* code) {
     fprintf(file,"jal read\n");
     fprintf(file,"lw $ra, 0($sp)\n");
     fprintf(file,"addi $sp, $sp, 4\n");
-    unsigned int reg=get_free_reg(code->ops[0]);
+    unsigned int reg=get_free_reg(&code->ops[0]);
     fprintf(file,"move %s, $v0\n",regs[reg].name);
     load_memory(reg);
 }
 
 void Trans_MIPS_write(Code* code) {
-    unsigned int reg=get_free_reg(code->ops[0]);
+    unsigned int reg=get_free_reg(&code->ops[0]);
     fprintf(file,"move $a0, %s\n",regs[reg].name);
     fprintf(file,"addi $sp, $sp, -4\n");
     fprintf(file,"sw $ra, 0($sp)\n");
@@ -335,47 +356,47 @@ void Trans_MIPS_label(Code* code) {
 }
 
 void Trans_MIPS_add(Code* code) {
-        int res=get_free_reg(code->ops[0]);
-        int op1=get_free_reg(code->ops[1]);
-        int op2=get_free_reg(code->ops[2]);
+        int res=get_free_reg(&code->ops[0]);
+        int op1=get_free_reg(&code->ops[1]);
+        int op2=get_free_reg(&code->ops[2]);
         fprintf(file,"add %s, %s, %s\n",regs[res].name,regs[op1].name,regs[op2].name);
         load_memory(res);
 }
 
 void Trans_MIPS_sub(Code* code) {
-    int res=get_free_reg(code->ops[0]);
-    int op1=get_free_reg(code->ops[1]);
-    int op2=get_free_reg(code->ops[2]);
+    int res=get_free_reg(&code->ops[0]);
+    int op1=get_free_reg(&code->ops[1]);
+    int op2=get_free_reg(&code->ops[2]);
     fprintf(file,"sub %s, %s, %s\n",regs[res].name,regs[op1].name,regs[op2].name);
     load_memory(res);    
 }
 
 void Trans_MIPS_mul(Code* code) {
-    int res=get_free_reg(code->ops[0]);
-    int op1=get_free_reg(code->ops[1]);
-    int op2=get_free_reg(code->ops[2]);
+    int res=get_free_reg(&code->ops[0]);
+    int op1=get_free_reg(&code->ops[1]);
+    int op2=get_free_reg(&code->ops[2]);
     fprintf(file,"mul %s, %s, %s\n",regs[res].name,regs[op1].name,regs[op2].name);
     load_memory(res);
 }
 
 void Trans_MIPS_div(Code* code) {
-    int res=get_free_reg(code->ops[0]);
-    int op1=get_free_reg(code->ops[1]);
-    int op2=get_free_reg(code->ops[2]);
+    int res=get_free_reg(&code->ops[0]);
+    int op1=get_free_reg(&code->ops[1]);
+    int op2=get_free_reg(&code->ops[2]);
     fprintf(file,"div %s, %s, %s\n",regs[res].name,regs[op1].name,regs[op2].name);
     load_memory(res);
 }
 
 void Trans_MIPS_assignop(Code* code){
-    unsigned int rreg = get_free_reg(code->ops[1]);
+    unsigned int rreg = get_free_reg(&code->ops[1]);
     if(code->ops[0].optype != OP_DEREF) {
-        unsigned int lreg = get_free_reg(code->ops[0]);
+        unsigned int lreg = get_free_reg(&code->ops[0]);
         fprintf(file, "move %s, %s\n", regs[lreg].name, regs[rreg].name);
         load_memory(lreg);
         return;
     }
 
-    FrameVar lvar = find_frame_var(code->ops[0]);
+    FrameVar lvar = find_frame_var(&code->ops[0]);
     assert(lvar);
     int i;
     for(i = 8; i <= 15; i++){
@@ -397,7 +418,7 @@ void Trans_MIPS_arg_call(Code* code){
         while(code->codetype == CODE_ARG) {
             num += 1;
             fprintf(file,"addi $sp, $sp, -4\n");
-            int reg = get_free_reg(code->ops[0]);
+            int reg = get_free_reg(&code->ops[0]);
             fprintf(file,"sw %s, 0($sp)\n",regs[reg].name);
             regs[reg].state = REGISTER_FREE;
             code->codetype = CODE_HANDLED;
@@ -408,7 +429,7 @@ void Trans_MIPS_arg_call(Code* code){
     assert(code->codetype == CODE_CALL);
     fprintf(file, "jal %s\n", code->ops[1].name);
     fprintf(file, "addi, $sp, $sp, %d\n", num * 4);
-    int reg = get_free_reg(code->ops[0]);
+    int reg = get_free_reg(&code->ops[0]);
     fprintf(file, "move %s, $v0\n", regs[reg].name);
     load_memory(reg);
     code->codetype = CODE_HANDLED;
@@ -421,7 +442,7 @@ void Trans_MIPS_goto(Code* code) {
 void Trans_MIPS_return(Code* code) {
     fprintf(file,"lw $ra, 4($fp)\n");
     fprintf(file,"addi $sp, $fp, 8\n");
-    unsigned int reg = get_free_reg(code->ops[0]);
+    unsigned int reg = get_free_reg(&code->ops[0]);
     //RETURN 
     fprintf(file,"lw $fp, 0($fp)\n");
     fprintf(file,"move $v0, %s\n",regs[reg].name);
@@ -435,8 +456,8 @@ void Trans_MIPS_return(Code* code) {
 void Trans_MIPS_ifgoto(Code* code) {
     char relop[4];
     extract_relop_from_ifgoto(code, relop);
-    int lreg = get_free_reg(code->ops[0]);
-    int rreg = get_free_reg(code->ops[1]);
+    int lreg = get_free_reg(&code->ops[0]);
+    int rreg = get_free_reg(&code->ops[1]);
     if(strcmp(relop,"==")==0) {
             fprintf(file,"beq %s, %s, %s\n",regs[lreg].name,regs[rreg].name,code->ops[2].name);
     }
@@ -491,7 +512,7 @@ void Trans_MIPS_function(Code* code){
                 printf("func-case 0\n");  
             #endif  
                 for(int i = 0; i < 3; i++)
-                    insert_frame_var_for_op(code->ops[i]);
+                    insert_frame_var_for_op(&code->ops[i]);
                 break;
 
             case CODE_ASSIGN_ADDR:
@@ -501,7 +522,7 @@ void Trans_MIPS_function(Code* code){
                 printf("func-case 1\n");  
             #endif  
                 for(int i = 0; i < 2; i++)
-                    insert_frame_var_for_op(code->ops[i]);
+                    insert_frame_var_for_op(&code->ops[i]);
                 break;
 
             case CODE_DEC:
@@ -521,14 +542,14 @@ void Trans_MIPS_function(Code* code){
             #if TRANS_MIPS_DEBUG  
                 printf("func-case 3\n");  
             #endif  
-                insert_frame_var_for_op(code->ops[0]);
+                insert_frame_var_for_op(&code->ops[0]);
                 break;
             
             case CODE_ARG:
             #if TRANS_MIPS_DEBUG  
                 printf("func-case 4\n");  
             #endif  
-                insert_frame_var_for_op(code->ops[0]);
+                insert_frame_var_for_op(&code->ops[0]);
                 break;
             
             case CODE_IFGOTO:
@@ -537,7 +558,7 @@ void Trans_MIPS_function(Code* code){
                 printf("func-case 5\n");  
             #endif  
                 for(int i = 0; i < 2; i++)
-                    insert_frame_var_for_op(code->ops[i]);
+                    insert_frame_var_for_op(&code->ops[i]);
                 break;
             
             case CODE_READ:
@@ -545,7 +566,7 @@ void Trans_MIPS_function(Code* code){
             #if TRANS_MIPS_DEBUG  
                 printf("func-case 6\n");  
             #endif  
-                insert_frame_var_for_op(code->ops[0]);
+                insert_frame_var_for_op(&code->ops[0]);
                 break;
             
             case CODE_GOTO:

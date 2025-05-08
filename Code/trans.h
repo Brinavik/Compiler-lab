@@ -18,10 +18,11 @@ typedef enum{
         OP_EMPTY, OP_CONST, OP_ADDR, OP_DEREF, OP_TEMP, OP_LABEL
 } OpType;
 
-typedef struct Op{
+typedef struct Op_{
     char* name;
     OpType optype;
-} Op;
+} Op_;
+typedef Op_* Op;
 
 typedef enum {CODE_UNKNOWN, CODE_READ, CODE_WRITE, CODE_LABEL, CODE_ADD, 
             CODE_SUB, CODE_MUL, CODE_DIV, CODE_SIMPLE_ASSIGNOP, CODE_ARG,
@@ -40,7 +41,7 @@ typedef struct Code{
     If there are less than 3 variables in the middle code, then the additional op is empty.
 */
     CodeType codetype;
-    Op ops[3];
+    Op_ ops[3];
 }Code;
 
 typedef struct Arg{
