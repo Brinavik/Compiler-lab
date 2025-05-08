@@ -283,7 +283,14 @@ void Trans_MIPS_SingleLineCode(Code* code){
     #endif
         Trans_MIPS_label(code);
         break;
-        
+    
+        case CODE_RETURN:
+    #if TRANS_MIPS_DEBUG
+        printf("Trans CODE_RETURN\n");
+    #endif    
+        Trans_MIPS_return(code);
+        break;
+
         case CODE_HANDLED:
     #if TRANS_MIPS_DEBUG
         printf("Trans CODE_HANDLED\n");
@@ -291,7 +298,7 @@ void Trans_MIPS_SingleLineCode(Code* code){
             break;
 
         default:
-            printf("ERROR: Code type unknown\n");
+            printf("ERROR: Code type unknown. CodeType: %d\n", code->codetype);
             assert(0);
             break;
     }
@@ -506,6 +513,7 @@ void Trans_MIPS_function(Code* code){
                 strcpy(arr->name, code->ops[0].name);
                 arr->offset = (-1)*local_offset;
                 insert_frame_var(arr);
+                code->codetype = CODE_HANDLED;
                 break;
             
             case CODE_CALL: 

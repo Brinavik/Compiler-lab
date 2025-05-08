@@ -4,7 +4,7 @@
 #include "lib.h"
 #include "trans.h"
 
-#define TRANS_MIPS_DEBUG 1
+#define TRANS_MIPS_DEBUG 0
 
 
 // Definition of the variables in a stack-frame.
