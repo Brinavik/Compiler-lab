@@ -1,6 +1,7 @@
 #include "lib.h"
 #include "symbol.h"
 #include "trans.h"
+#include "trans_mips.h"
 
 Codelist codelist;
 
@@ -14,6 +15,9 @@ static void insert_op(Code* code, char* opname, unsigned int opnum) {
         case '5': case '6': case '7': case '8': case '9':  
             code->ops[opnum].optype = OP_CONST;
             break;
+        case '#':
+            printf("Wierd imm code: %s\n", code->str);
+            assert(0);
         case '&':
             code->ops[opnum].optype = OP_ADDR;
             break;
@@ -213,7 +217,7 @@ void InitBasicComponents(){
     // init codelist for "trans.h"
     codelist.head = (Code*)malloc(sizeof(Code)); 
     codelist.head->next = NULL;
-    codelist.tail = codelist.head;                
+    codelist.tail = codelist.head;     
 }
 
 
@@ -393,7 +397,7 @@ void Trans_Cond(Node* node, char* label_true, char* label_false) {
         
         Code* code1 = (Code*)malloc(sizeof(Code));
         sprintf(code1->str, "IF %s != #0 GOTO %s\n", t1, label_true);
-        insert_ops(code1, t1, label_true, "");
+        insert_ops(code1, t1, "0", label_true);
         codelist_append(code1);
         Code* code2 = (Code*)malloc(sizeof(Code));
         sprintf(code2->str, "GOTO %s\n", label_false);
@@ -1084,17 +1088,23 @@ void Trans_Exp_Addr(Node* node, char* place) {
             snprintf(str, sizeof(str), "%d", element_count * 4);
             insert_ops(code_stride, t_stride, str, "");
             codelist_append(code_stride);
-            
+
             char* t_mul = new_temp();
             Code* code_mul = (Code*)malloc(sizeof(Code));
             sprintf(code_mul->str, "%s := %s * %s\n", t_mul, t_index, t_stride);
             insert_ops(code_mul, t_mul, t_index, t_stride);
             codelist_append(code_mul);
             
+
+            // 这里有可能出现#0: total_offset
             char* new_total = new_temp();
             Code* code_add = (Code*)malloc(sizeof(Code));
             sprintf(code_add->str, "%s := %s + %s\n", new_total, total_offset, t_mul);
-            insert_ops(code_add, new_total, total_offset, t_mul);
+            
+            assert(total_offset[0] == '#');
+            char* total_offset_without_jing = total_offset + 1;
+
+            insert_ops(code_add, new_total, total_offset_without_jing, t_mul);
             codelist_append(code_add);
             
             total_offset = new_total;
