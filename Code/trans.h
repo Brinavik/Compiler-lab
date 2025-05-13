@@ -12,7 +12,7 @@
 // 新增数组支持开关
 #define TRANS_ARRAY_SUPPORT 1  
 // 输出控制符，为0输出中间代码，为1输出汇编指令
-#define TRANS_MIPS_OUTPUT 1
+#define TRANS_MIPS_OUTPUT 0
 
 typedef enum{
         OP_EMPTY, OP_CONST, OP_ADDR, OP_DEREF, OP_TEMP, OP_LABEL

@@ -999,9 +999,23 @@ void Trans_Dec(Node* node) {
     if(node->num == 1)
         Trans_VarDec(node->child[0]);
     else if(node->num == 3) {
-        Trans_VarDec(node->child[0]);
+        // 1. 处理变量声明部分并获取变量名
+        Node* var_dec_node = node->child[0];
+        Trans_VarDec(var_dec_node);
+
+        // 获取变量名（假设 VarDec 结构为 ID）
+        // 注意：这里需要根据实际 AST 结构调整获取变量名的方式
+        char* var_name = var_dec_node->child[0]->attr;
+
+        // 2. 处理初始化表达式，生成临时变量
         char* t1 = new_temp();
         Trans_Exp(node->child[2], t1);
+
+        // 3. 生成赋值语句：将临时变量赋值给目标变量
+        Code* assign_code = (Code*)malloc(sizeof(Code));
+        sprintf(assign_code->str, "%s := %s\n", var_name, t1);
+        insert_ops(assign_code, var_name, t1, "");
+        codelist_append(assign_code);
     }
 }
 
